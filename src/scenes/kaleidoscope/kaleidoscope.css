@@ -1,0 +1,276 @@
+/* ═══════════════════════════════════════════════════════════════
+   VOID — Universe 02: The Kaleidoscope
+   Scoped under .kc-* to avoid any collision with Universe 01.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── scene wrapper ─────────────────────────────────────────── */
+.kc-scene {
+  position: fixed;
+  inset: 0;
+  background: #050412;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.kc-canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* ── overlay layout ────────────────────────────────────────── */
+.kc-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* ── header ────────────────────────────────────────────────── */
+.kc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  animation: kc-fade-up 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+}
+
+.kc-title-block {}
+.kc-eyebrow {
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: #A9A3C3;
+  margin: 0 0 0.35rem;
+}
+.kc-title {
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(22px, 4vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  color: #F4F1FF;
+  margin: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.kc-tagline {
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #8B5CF6;
+  margin: 0.4rem 0 0;
+}
+
+/* ── hint bar ──────────────────────────────────────────────── */
+.kc-hints {
+  text-align: center;
+  animation: kc-fade-up 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.9s both;
+}
+.kc-hint-text {
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #A9A3C3;
+  animation: kc-breathe 2.8s ease-in-out infinite;
+}
+.kc-hint-text.kc-hint-hidden {
+  opacity: 0.3;
+  animation: none;
+}
+
+/* ── controls bar ──────────────────────────────────────────── */
+.kc-controls {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 0.9rem;
+  background: rgba(5, 4, 18, 0.72);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 999px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: kc-fade-up 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.7s both;
+  max-width: min(900px, 100%);
+  margin: 0 auto;
+}
+
+.kc-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.kc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.kc-label {
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: 9.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #A9A3C3;
+  white-space: nowrap;
+}
+
+.kc-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(139, 92, 246, 0.2);
+  flex-shrink: 0;
+}
+
+/* ── buttons ───────────────────────────────────────────────── */
+.kc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.07);
+  color: #A9A3C3;
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.12s ease;
+  white-space: nowrap;
+}
+.kc-btn:hover {
+  color: #F4F1FF;
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(139, 92, 246, 0.14);
+}
+.kc-btn:active {
+  transform: scale(0.95);
+}
+.kc-btn:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.7);
+  outline-offset: 2px;
+}
+.kc-btn.kc-active {
+  color: #E879F9;
+  border-color: rgba(232, 121, 249, 0.45);
+  background: rgba(232, 121, 249, 0.1);
+}
+.kc-btn.kc-util {
+  font-size: 9.5px;
+}
+
+/* Return button — prominent */
+.kc-btn.kc-return {
+  color: #8B5CF6;
+  border-color: rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.1);
+  letter-spacing: 0.18em;
+  font-size: 9.5px;
+  gap: 0.45rem;
+}
+.kc-btn.kc-return:hover {
+  color: #F4F1FF;
+  border-color: rgba(139, 92, 246, 0.7);
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.kc-return-arrow {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Palette swatch dot */
+.kc-swatch {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.kc-swatch-label {
+  /* hide on very small screens, show on wider */
+}
+
+/* ── touch targets ─────────────────────────────────────────── */
+@media (pointer: coarse) {
+  .kc-btn {
+    min-height: 40px;
+    padding: 0 0.9rem;
+  }
+}
+
+/* ── mobile layout ─────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .kc-overlay {
+    padding: 1rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .kc-controls {
+    gap: 0.4rem 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 20px;
+  }
+  .kc-label {
+    display: none; /* reclaim space */
+  }
+  .kc-divider {
+    display: none;
+  }
+  .kc-swatch-label {
+    display: none;
+  }
+  .kc-title {
+    font-size: 20px;
+    letter-spacing: 0.38em;
+  }
+}
+
+/* ── animations ────────────────────────────────────────────── */
+@keyframes kc-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kc-breathe {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1;   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kc-header,
+  .kc-hints,
+  .kc-controls {
+    animation: none;
+  }
+  .kc-hint-text {
+    animation: none;
+  }
+}
