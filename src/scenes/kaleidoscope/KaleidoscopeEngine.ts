@@ -20,8 +20,9 @@ import {
 const TAU = Math.PI * 2;
 const MAX_TRAIL_POINTS = 120;
 const MAX_TRAILS = 40;
-const BLOOM_MAX_R = 160;
-const BLOOM_ORBIT_COUNT = 24;
+/** Bloom grows to this fraction of the shorter screen side (wide, screen-scaled). */
+const BLOOM_MAX_FRAC = 0.3;
+const BLOOM_ORBIT_COUNT = 12;
 const DUST_COUNT = 320;
 const MAX_DPR = 2;
 
@@ -531,8 +532,8 @@ export class KaleidoscopeEngine {
     for (let i = 0; i < BLOOM_ORBIT_COUNT; i++) {
       orbits.push({
         angle: (TAU / BLOOM_ORBIT_COUNT) * i,
-        speed: 1.2 + Math.random() * 1.8,
-        r: 18 + Math.random() * 22,
+        speed: (i % 2 === 0 ? 1 : -1) * (0.9 + Math.random() * 0.9),
+        r: 1.3 + Math.random() * 1.5,
         colorIdx: (this.bloomColorIdx + i) % 7,
       });
     }
@@ -634,13 +635,14 @@ export class KaleidoscopeEngine {
 
       // Bloom grow
       if (this.bloom.active && !this.bloom.bursting) {
-        this.bloom.radius = Math.min(BLOOM_MAX_R, this.bloom.radius + dt * 55);
+        const maxR = Math.min(this.w, this.h) * BLOOM_MAX_FRAC;
+        this.bloom.radius += (maxR - this.bloom.radius) * Math.min(1, dt * 1.6);
         for (const orb of this.bloom.orbits) {
           orb.angle += orb.speed * dt;
         }
       }
       if (this.bloom.bursting) {
-        this.bloom.burstT += dt / 1.0;
+        this.bloom.burstT += dt / 1.3;
         if (this.bloom.burstT >= 1) {
           this.bloom.active = false;
           this.bloom.bursting = false;
@@ -884,70 +886,117 @@ export class KaleidoscopeEngine {
   private drawBloom(g: CanvasRenderingContext2D): void {
     const { bloom } = this;
     const palette = PALETTES[this.palette];
+    const ci = bloom.orbits[0]!.colorIdx;
+    const [r0, g0, b0] = hexToRgb(palette.colors[ci % palette.colors.length]!);
+    const [r1, g1, b1] = hexToRgb(palette.colors[(ci + 3) % palette.colors.length]!);
+    const base = (a: number) => `rgba(${r0},${g0},${b0},${a.toFixed(3)})`;
+    const accent = (a: number) => `rgba(${r1},${g1},${b1},${a.toFixed(3)})`;
+    const relX = bloom.x - this.cx;
+    const relY = bloom.y - this.cy;
+
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
 
     if (bloom.bursting) {
-      const t = easeOutCubic(bloom.burstT);
-      const alpha = (1 - bloom.burstT) * 0.8;
-
+      // Release: a brief soft flash, then three clean staggered shock rings sweep outward
+      const u = bloom.burstT;
+      const reach = Math.min(this.w, this.h) * 0.62;
+      const r0px = Math.max(1, bloom.burstR);
       for (const tf of this.transforms) {
-        const relX = bloom.x - this.cx;
-        const relY = bloom.y - this.cy;
         const { x, y } = applyTransform(tf, relX, relY, this.cx, this.cy);
-        const r = bloom.burstR + t * Math.min(this.w, this.h) * 0.28;
-
-        g.save();
-        g.globalCompositeOperation = 'lighter';
-        const gr = g.createRadialGradient(x, y, 0, x, y, r);
-        const color = palette.colors[bloom.orbits[0]!.colorIdx % palette.colors.length]!;
-        const [rv, gv, bv] = hexToRgb(color);
-        gr.addColorStop(0, `rgba(${rv},${gv},${bv},${(alpha * 0.5).toFixed(3)})`);
-        gr.addColorStop(0.4, `rgba(${rv},${gv},${bv},${(alpha * 0.15).toFixed(3)})`);
-        gr.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = gr;
-        g.beginPath();
-        g.arc(x, y, r, 0, TAU);
-        g.fill();
-        g.restore();
+        if (u < 0.3) {
+          const fa = (1 - u / 0.3) * 0.2;
+          const fr = r0px * (1 + u * 1.5);
+          const gr = g.createRadialGradient(x, y, 0, x, y, fr);
+          gr.addColorStop(0, base(fa));
+          gr.addColorStop(1, base(0));
+          g.fillStyle = gr;
+          g.beginPath();
+          g.arc(x, y, fr, 0, TAU);
+          g.fill();
+        }
+        for (let k = 0; k < 3; k++) {
+          const start = k * 0.12;
+          const uk = (u - start) / (1 - start);
+          if (uk <= 0 || uk >= 1) continue;
+          const e = easeOutCubic(uk);
+          const rr = r0px + (reach * (1 - k * 0.16) - r0px) * e;
+          const fade = Math.pow(1 - uk, 1.4) * (1 - k * 0.22);
+          const col = k === 1 ? accent : base;
+          g.beginPath();
+          g.arc(x, y, rr, 0, TAU);
+          g.lineWidth = 8 * (1 - uk) + 3;
+          g.strokeStyle = col(fade * 0.16);
+          g.stroke();
+          g.lineWidth = 2.4 * (1 - uk) + 0.9;
+          g.strokeStyle = col(fade);
+          g.stroke();
+        }
       }
+      g.restore();
       return;
     }
 
+    // Holding: crisp concentric rings, a slowly turning petal outline, orbiting points of light
+    const R = Math.max(1, bloom.radius);
+    const inner = 0.62;
+    const turn = this.clock * 0.5;
     for (const tf of this.transforms) {
-      const relX = bloom.x - this.cx;
-      const relY = bloom.y - this.cy;
       const { x, y } = applyTransform(tf, relX, relY, this.cx, this.cy);
 
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-
-      // Core glow
-      const color0 = palette.colors[bloom.orbits[0]!.colorIdx % palette.colors.length]!;
-      const [rv0, gv0, bv0] = hexToRgb(color0);
-      const gr = g.createRadialGradient(x, y, 0, x, y, bloom.radius);
-      gr.addColorStop(0, `rgba(${rv0},${gv0},${bv0},0.35)`);
-      gr.addColorStop(0.3, `rgba(${rv0},${gv0},${bv0},0.12)`);
-      gr.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = gr;
+      const core = g.createRadialGradient(x, y, 0, x, y, R * 0.6);
+      core.addColorStop(0, base(0.16));
+      core.addColorStop(1, base(0));
+      g.fillStyle = core;
       g.beginPath();
-      g.arc(x, y, bloom.radius, 0, TAU);
+      g.arc(x, y, R * 0.6, 0, TAU);
       g.fill();
 
-      // Orbiting particles
-      for (const orb of bloom.orbits) {
-        const ox = x + Math.cos(orb.angle) * bloom.radius * 0.85;
-        const oy = y + Math.sin(orb.angle) * bloom.radius * 0.85;
-        const color = palette.colors[orb.colorIdx % palette.colors.length]!;
-        const [rv, gv, bv] = hexToRgb(color);
-        const pg = g.createRadialGradient(ox, oy, 0, ox, oy, orb.r);
-        pg.addColorStop(0, `rgba(${rv},${gv},${bv},0.7)`);
-        pg.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = pg;
+      for (const [rr, col, a] of [
+        [R, base, 0.6],
+        [R * inner, accent, 0.45],
+      ] as const) {
+        g.beginPath();
+        g.arc(x, y, rr, 0, TAU);
+        g.lineWidth = 5;
+        g.strokeStyle = col(a * 0.12);
+        g.stroke();
+        g.lineWidth = 1.1;
+        g.strokeStyle = col(a);
+        g.stroke();
+      }
+
+      // six-petal rose between the rings
+      g.beginPath();
+      for (let i = 0; i <= 120; i++) {
+        const th = (i / 120) * TAU;
+        const rr = R * (inner + (1 - inner) * Math.abs(Math.cos(3 * th + turn)));
+        const px = x + Math.cos(th) * rr;
+        const py = y + Math.sin(th) * rr;
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.lineWidth = 0.8;
+      g.strokeStyle = base(0.32);
+      g.stroke();
+
+      // points of light on both rings, counter-rotating
+      bloom.orbits.forEach((orb, i) => {
+        const ring = i % 2 === 0 ? 1 : inner;
+        const ox = x + Math.cos(orb.angle) * R * ring;
+        const oy = y + Math.sin(orb.angle) * R * ring;
+        const [rv, gv, bv] = hexToRgb(palette.colors[orb.colorIdx % palette.colors.length]!);
+        g.fillStyle = `rgba(${rv},${gv},${bv},0.14)`;
+        g.beginPath();
+        g.arc(ox, oy, orb.r * 3.2, 0, TAU);
+        g.fill();
+        g.fillStyle = `rgba(${rv},${gv},${bv},0.95)`;
         g.beginPath();
         g.arc(ox, oy, orb.r, 0, TAU);
         g.fill();
-      }
-
-      g.restore();
+      });
     }
+    g.restore();
   }
 }
